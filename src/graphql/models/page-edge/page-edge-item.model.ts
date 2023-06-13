@@ -1,9 +1,7 @@
 import { Field, ObjectType } from "@nestjs/graphql";
 
-@ObjectType({
-	description: "Información de los nodos de la paginación",
-})
+@ObjectType()
 export class PageEdgeItem {
-	@Field((type) => String, { nullable: true, description: "Cursor del nodo" })
+	@Field((type) => String, { nullable: true })
 	cursor: string | undefined;
 }

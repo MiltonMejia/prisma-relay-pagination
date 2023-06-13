@@ -33,4 +33,5 @@ export type RelayPagination<T> = {
 		next: Cursor;
 		last: Cursor;
 	};
+	totalCount: number;
 };

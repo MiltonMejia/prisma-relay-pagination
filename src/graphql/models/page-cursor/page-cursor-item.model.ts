@@ -1,16 +1,13 @@
-import { Directive, Field, Int, ObjectType } from "@nestjs/graphql";
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
-@Directive("@shareable")
-@ObjectType({
-	description: "Información de los cursores de la páginación",
-})
+@ObjectType()
 export class PageCursorItem {
-	@Field((type) => String, { description: "Cursor del nodo" })
+	@Field((type) => String)
 	cursor!: string;
 
-	@Field((type) => Int, { description: "Página actual de la paginación" })
+	@Field((type) => Int)
 	page!: number;
 
-	@Field((type) => Boolean, { description: "Indica si el cursor corresponde a la página actual" })
+	@Field((type) => Boolean)
 	isCurrent!: boolean;
 }

@@ -1,13 +1,11 @@
-import { Field, Int, ObjectType } from "@nestjs/graphql";
-import { PageCursorList } from "./page-cursor/page-cursor-list.model";
+import { Field, Int, ObjectType } from '@nestjs/graphql';
+import { PageCursorList } from './page-cursor/page-cursor-list.model';
 
-@ObjectType({
-	description: "Información de los cursores de la páginación",
-})
+@ObjectType()
 export class CursorOffsetPagination {
-	@Field((type) => PageCursorList, { nullable: true, description: "Información de las páginas adyacentes al actual" })
+	@Field((type) => PageCursorList, { nullable: true })
 	pageCursors: PageCursorList | undefined;
 
-	@Field((type) => Int, { description: "Registros totales de la paginación" })
+	@Field((type) => Int)
 	totalCount: number | undefined;
 }
