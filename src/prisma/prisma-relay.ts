@@ -38,7 +38,7 @@ export class PrismaRelay<T extends PrismaManyArgs> {
 				}),
 			]);
 
-			const page = this.args.take === null ? Math.ceil((total - remain) / this.args!.take) : 0;
+			const page = this.args.take !== null ? Math.ceil((total - remain) / this.args!.take) : 0;
 			const fixedPage = page === 0 ? 1 : page + 1;
 			return { total: total, remain: remain, currentPage: fixedPage };
 		} catch (e: any) {
