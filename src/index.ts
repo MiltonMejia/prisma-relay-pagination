@@ -1,2 +1,2 @@
-export * from "./graphql";
-export * from "./prisma";
+export * from './nestjs';
+export * from './prisma';

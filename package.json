@@ -1,6 +1,6 @@
 {
 	"name": "prisma-custom-relay-pagination",
-	"version": "0.2.3",
+	"version": "0.3.1",
 	"description": "This package merges cursor, offset and relay pagination",
 	"main": "lib/index.js",
 	"types": "lib/index.d.ts",
@@ -18,7 +18,8 @@
 		"pagination",
 		"relay",
 		"offset",
-		"cursor"
+		"cursor",
+		"decorator"
 	],
 	"files": [
 		"lib/**/*"
@@ -30,17 +31,24 @@
 	"author": "mefam",
 	"license": "MIT",
 	"devDependencies": {
+		"@nestjs/common": "^9.4.3",
+		"@nestjs/core": "^9.4.3",
 		"@nestjs/graphql": "^11.0.6",
+		"@paljs/plugins": "^5.3.3",
 		"@prisma/client": "^4.15.0",
+		"@types/lodash": "^4.14.195",
 		"@types/node": "^20.2.5",
 		"@types/ws": "^8.5.4",
 		"@typescript-eslint/eslint-plugin": "^5.59.9",
 		"@typescript-eslint/parser": "^5.59.9",
+		"class-transformer": "^0.5.1",
 		"class-validator": "^0.14.0",
 		"eslint": "^8.42.0",
+		"graphql": "^16.6.0",
 		"prettier": "2.8.8",
 		"prisma": "^4.15.0",
 		"rimraf": "^5.0.1",
+		"rxjs": "^7.8.1",
 		"ts-morph": "^18.0.0",
 		"ts-node": "^10.9.1",
 		"typescript": "^5.1.3"
