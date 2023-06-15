@@ -25,27 +25,22 @@ export class PrismaRelay<T extends PrismaManyArgs> {
 	}
 
 	private async findPagination() {
-		try {
-			const [total, remain] = await this.prisma.$transaction([
-				this.prisma[this.args!.model].count({
-					where: this.args?.where ?? undefined,
-					orderBy: this.args?.orderBy ?? undefined,
-				}),
-				this.prisma[this.args!.model].count({
-					cursor: this.cursor,
-					where: this.args?.where ?? undefined,
-					orderBy: this.args?.orderBy ?? undefined,
-				}),
-			]);
+		const [total, remain] = await this.prisma.$transaction([
+			this.prisma[this.args!.model].count({
+				where: this.args?.where ?? undefined,
+				orderBy: this.args?.orderBy ?? undefined,
+			}),
+			this.prisma[this.args!.model].findMany({
+				select: { id: true },
+				cursor: this.cursor,
+				where: this.args?.where ?? undefined,
+				orderBy: this.args?.orderBy ?? undefined,
+			}),
+		]);
 
-			const page = this.args.take !== null ? Math.ceil((total - remain) / this.args!.take) : 0;
-			const fixedPage = page === 0 ? 1 : page + 1;
-			return { total: total, remain: remain, currentPage: fixedPage };
-		} catch (e: any) {
-			throw Error(
-				'Due to prisma limitations, you must include a unique field in your orderBy object. Visit https://github.com/prisma/prisma/discussions/13348 for more information'
-			);
-		}
+		const page = this.args.take !== null ? Math.ceil((total - remain.length) / this.args!.take) : 0;
+		const fixedPage = page === 0 ? 1 : page + 1;
+		return { total: total, remain: remain.length, currentPage: fixedPage };
 	}
 
 	private generatePagination() {
@@ -165,7 +160,7 @@ export class PrismaRelay<T extends PrismaManyArgs> {
 		const edges = [];
 		let select = undefined;
 
-		if (this.args?.select !== 'undefined') {
+		if (typeof this.args?.select !== 'undefined') {
 			select = { ...this.args?.select, id: true };
 		}
 

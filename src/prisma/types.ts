@@ -1,24 +1,24 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from '@prisma/client';
 
 export type PrismaCursor = { id: number } | undefined;
 export type Page = { total: number; remain: number; currentPage: number } | null;
 export type CursorList = Cursor[] | null;
 
 export type PrismaManyArgs = {
-	select?: any;
-	where?: any;
-	orderBy?: any;
+	select?: { [name: string]: any } | undefined;
+	where?: { [name: string]: any } | undefined;
+	orderBy?: { [name: string]: any } | undefined;
 };
 
 export type CursorObject<T extends PrismaManyArgs> = {
 	take: number;
 	buttons: number;
 	cursor: string | null;
-	select?: T["select"];
+	select: T['select'] | undefined;
 	//@ts-ignore
 	model: Prisma.ModelName;
-	where?: T["where"];
-	orderBy?: T["orderBy"];
+	where: T['where'] | undefined;
+	orderBy: T['orderBy'] | undefined;
 };
 
 export type PageEdge<T> = { cursor: string; node: T };

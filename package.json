@@ -1,6 +1,6 @@
 {
 	"name": "prisma-custom-relay-pagination",
-	"version": "0.3.3",
+	"version": "0.3.4",
 	"description": "This package merges cursor, offset and relay pagination",
 	"main": "lib/index.js",
 	"types": "lib/index.d.ts",
