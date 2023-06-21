@@ -142,8 +142,14 @@ export class PrismaRelay<T extends PrismaManyArgs> {
 			return null;
 		}
 
+		const take = () => {
+			const secondLastRecords = Math.floor(this.page.total / this.args.take) * this.args.take;
+			const take = this.page.total - secondLastRecords;
+			return take === 0 ? -this.args.take : -take;
+		};
+
 		const data = await this.prisma[this.args!.model].findFirst({
-			take: -this.args!.take,
+			take: take(),
 			select: this.args?.select ?? undefined,
 			where: this.args?.where ?? undefined,
 			orderBy: this.args?.orderBy ?? undefined,
