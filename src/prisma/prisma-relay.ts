@@ -15,7 +15,7 @@ export class PrismaRelay<T extends PrismaManyArgs> {
 	private async decryptCursor() {
 		if (this.args?.cursor === null || typeof this.args?.cursor === 'undefined') return undefined;
 		const decryptedCursor = Buffer.from(this.args!.cursor, 'base64').toString('ascii').slice(9);
-		const parseCursor = isNaN(parseInt(decryptedCursor)) ? decryptedCursor : parseInt(decryptedCursor);
+		const parseCursor = decryptedCursor.match(/[a-zA-Z]/) === null ? parseInt(decryptedCursor) : decryptedCursor;
 		const model = await this.prisma[this.args!.model].findFirst({
 			select: { id: true },
 			cursor: { id: parseCursor },
