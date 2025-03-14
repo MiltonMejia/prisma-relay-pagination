@@ -4,18 +4,18 @@ import { PageCursorItem } from "./page-cursor-item.model";
 @Directive("@shareable")
 @ObjectType()
 export class PageCursorList {
-	@Field((type) => PageCursorItem, { nullable: true })
-	first: PageCursorItem | undefined;
+	@Field(() => PageCursorItem, { nullable: true, defaultValue: null })
+	first: PageCursorItem | null = null
 
-	@Field((type) => PageCursorItem, { nullable: true })
-	previous: PageCursorItem | undefined;
+	@Field(() => PageCursorItem, { nullable: true, defaultValue: null })
+	previous: PageCursorItem | null = null;
 
-	@Field((type) => [PageCursorItem], { nullable: true })
-	around: PageCursorItem[] | undefined;
+	@Field(() => [PageCursorItem], { nullable: true, defaultValue: null })
+	around: PageCursorItem[] | null = null;
 
-	@Field((type) => PageCursorItem, { nullable: true })
-	next: PageCursorItem | undefined;
+	@Field(() => PageCursorItem, { nullable: true, defaultValue: null })
+	next: PageCursorItem | null = null
 
-	@Field((type) => PageCursorItem, { nullable: true })
-	last: PageCursorItem | undefined;
+	@Field(() => PageCursorItem, { nullable: true, defaultValue: null })
+	last: PageCursorItem | null = null
 }

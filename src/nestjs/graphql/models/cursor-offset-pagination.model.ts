@@ -4,9 +4,9 @@ import { PageCursorList } from './page-cursor/page-cursor-list.model';
 @Directive('@shareable')
 @ObjectType()
 export class CursorOffsetPagination {
-	@Field((type) => PageCursorList, { nullable: true })
-	pageCursors: PageCursorList | undefined;
+	@Field(() => PageCursorList, { nullable: true, defaultValue: null })
+	pageCursors: PageCursorList | null = null;
 
-	@Field((type) => Int)
-	totalCount: number | undefined;
+	@Field(() => Int)
+	totalCount!: number;
 }

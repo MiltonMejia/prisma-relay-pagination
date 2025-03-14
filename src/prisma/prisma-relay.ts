@@ -1,225 +1,235 @@
-import { PrismaClient } from '@prisma/client';
-import { CursorList, CursorObject, Page, PrismaCursor, PrismaManyArgs, RelayPagination } from './types';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { CursorList, CursorObject, Page, PrismaCursor, RelayPagination } from './prisma-relay.type';
 
-export class PrismaRelay<T extends PrismaManyArgs> {
-	private args: CursorObject<T> | null = null;
-	private prisma: PrismaClient = null;
-	private cursor: PrismaCursor = undefined;
-	private page: Page = null;
+//@ts-ignore
+export class PrismaRelay<T extends Prisma.ModelName> {
+    private _page: Page | null = null;
+    private _cursor: PrismaCursor | undefined = undefined;
+    private _defaultButtons = 5;
 
-	constructor(prisma: PrismaClient, args: CursorObject<T>) {
-		this.prisma = prisma;
-		this.args = args;
-	}
+    constructor(
+        private readonly prisma: PrismaClient,
+        private readonly args: CursorObject<T>
+    ) {
+        if (typeof this.args?.buttons === 'number') {
+            this._defaultButtons = this.args.buttons;
+        }
+    }
 
-	private async decryptCursor() {
-		if (this.args?.cursor === null || typeof this.args?.cursor === 'undefined') return undefined;
-		const decryptedCursor = Buffer.from(this.args!.cursor, 'base64').toString('ascii').slice(9);
-		const parseCursor = decryptedCursor.match(/[a-zA-Z]/) === null ? parseInt(decryptedCursor) : decryptedCursor;
-		const model = await this.prisma[this.args!.model].findFirst({
-			select: { id: true },
-			cursor: { id: parseCursor },
-		});
+    private async decryptCursor() {
+        if (typeof this.args?.pagination?.cursor === 'undefined') {
+            return undefined;
+        }
 
-		return model !== null ? { id: model.id } : undefined;
-	}
+        const decryptedCursor = Buffer.from(this.args.pagination.cursor, 'base64').toString('ascii').slice(9);
+        const parseCursor = decryptedCursor.match(/[a-zA-Z]/) === null ? parseInt(decryptedCursor) : decryptedCursor;
+        //@ts-ignore
+        const model = await this.prisma[this.args.model].findFirst({
+            select: { id: true },
+            cursor: { id: parseCursor }
+        });
 
-	private async findPagination() {
-		const [total, remain] = await this.prisma.$transaction([
-			this.prisma[this.args!.model].count({
-				where: this.args?.where ?? undefined,
-				orderBy: this.args?.orderBy ?? undefined,
-			}),
-			this.prisma[this.args!.model].findMany({
-				select: { id: true },
-				cursor: this.cursor,
-				where: this.args?.where ?? undefined,
-				orderBy: this.args?.orderBy ?? undefined,
-			}),
-		]);
+        return model !== null ? { id: model.id } : undefined;
+    }
 
-		const page = this.args.take !== null ? Math.ceil((total - remain.length) / this.args!.take) : 0;
-		const fixedPage = page === 0 ? 1 : page + 1;
-		return { total: total, remain: remain.length, currentPage: fixedPage };
-	}
+    private async findPagination() {
+        const [total, remain] = await this.prisma.$transaction([
+            //@ts-ignore
+            this.prisma[this.args.model].count({
+                where: this.args?.where,
+                orderBy: this.args?.orderBy
+            }),
+            //@ts-ignore
+            this.prisma[this.args.model].count({
+                cursor: this._cursor,
+                where: this.args?.where,
+                orderBy: this.args?.orderBy
+            })
+        ]);
 
-	private generatePagination() {
-		const totalPages = Math.ceil(this.page!.total / this.args!.take);
-		let firstPage = Math.floor(this.args!.buttons / 2);
-		let lastPage = Math.floor(this.args!.buttons / 2);
+        const itemsExists = typeof this.args?.pagination?.items === 'number';
+        const page = itemsExists ? Math.ceil((total - remain) / this.args.pagination!.items!) : 0;
+        const fixedPage = page === 0 ? 1 : page + 1;
+        return { total: total, remain: remain, currentPage: fixedPage };
+    }
 
-		if (this.page!.currentPage - firstPage <= 0) {
-			lastPage += firstPage - this.page!.currentPage + 1;
-			firstPage = this.page!.currentPage - 1;
-		}
+    private async getPageEdges() {
+        const edges = [];
+        let select = undefined;
 
-		if (this.page!.currentPage + lastPage > totalPages) {
-			firstPage += lastPage - (totalPages - this.page!.currentPage);
-			lastPage = totalPages - this.page!.currentPage;
-		}
+        if (typeof this.args?.select !== 'undefined') {
+            select = { ...this.args?.select, id: true };
+        }
 
-		const pageList: number[] = [];
-		const firstArrayPage = this.page!.currentPage - firstPage;
-		const firstIndex = firstArrayPage <= 0 ? 1 : firstArrayPage;
-		for (let i = firstIndex; i <= this.page!.currentPage + lastPage; i++) {
-			pageList.push(i);
-		}
+        const itemsExists = typeof this.args?.pagination?.items === 'number';
+        //@ts-ignore
+        const result = await this.prisma[this.args.model].findMany({
+            select: select,
+            cursor: this._cursor,
+            omit: this.args?.omit,
+            where: this.args?.where,
+            orderBy: this.args?.orderBy,
+            include: this.args?.include,
+            take: itemsExists ? this.args.pagination!.items! : undefined
+        });
 
-		return pageList;
-	}
+        for (let i = 0; i < result.length; i++) {
+            edges.push({
+                cursor: Buffer.from('saltysalt'.concat(String(result[i].id))).toString('base64'),
+                node: result[i]
+            });
+        }
 
-	private async getNearCursors() {
-		const cursorList = [];
-		const pagination = this.generatePagination();
+        return edges;
+    }
 
-		for (let i = 0; i < pagination.length; i++) {
-			let take = undefined;
-			let skip = undefined;
-			const skipItems = (pagination[i] - this.page!.currentPage) * this.args!.take;
+    private generatePagination() {
+        const totalPages = Math.ceil(this._page!.total / this.args.pagination!.items!);
+        let firstPage = Math.floor(this._defaultButtons / 2);
+        let lastPage = Math.floor(this._defaultButtons / 2);
 
-			switch (true) {
-				case skipItems < 0:
-					take = skipItems;
-					skip = 1;
-					break;
-				case skipItems > 0:
-					take = 1;
-					skip = skipItems;
-					break;
-				default:
-					take = 1;
-					skip = 0;
-			}
+        if (this._page!.currentPage - firstPage <= 0) {
+            lastPage += firstPage - this._page!.currentPage + 1;
+            firstPage = this._page!.currentPage - 1;
+        }
 
-			const data = await this.prisma[this.args!.model].findFirst({
-				cursor: this.cursor,
-				select: { id: true },
-				take: take,
-				skip: skip,
-				where: this.args?.where ?? undefined,
-				orderBy: this.args?.orderBy ?? undefined,
-			});
-			cursorList.push({
-				isCurrent: skipItems === 0,
-				page: pagination[i],
-				cursor: Buffer.from('saltysalt'.concat(String(data.id))).toString('base64'),
-			});
-		}
-		return cursorList;
-	}
+        if (this._page!.currentPage + lastPage > totalPages) {
+            firstPage += lastPage - (totalPages - this._page!.currentPage);
+            lastPage = totalPages - this._page!.currentPage;
+        }
 
-	private async getAdjacentCursors(cursorList: CursorList) {
-		const currentPage = cursorList!.findIndex((item) => item!.page === this.page!.currentPage);
-		if (currentPage === -1) return { previous: null, next: null };
+        const pageList: number[] = [];
+        const firstArrayPage = this._page!.currentPage - firstPage;
+        const firstIndex = firstArrayPage <= 0 ? 1 : firstArrayPage;
+        for (let i = firstIndex; i <= this._page!.currentPage + lastPage; i++) {
+            pageList.push(i);
+        }
 
-		return {
-			previous: cursorList![currentPage - 1] ?? null,
-			next: cursorList![currentPage + 1] ?? null,
-		};
-	}
+        return pageList;
+    }
 
-	private async getFirstRecord() {
-		if (this.page!.currentPage === 1) {
-			return null;
-		}
+    private async getNearCursors() {
+        const cursorList = [];
+        const pagination = this.generatePagination();
 
-		const data = await this.prisma[this.args!.model].findFirst({
-			take: 1,
-			select: this.args?.select ?? undefined,
-			where: this.args?.where ?? undefined,
-			orderBy: this.args?.orderBy ?? undefined,
-		});
+        for (let i = 0; i < pagination.length; i++) {
+            let take = undefined;
+            let skip = undefined;
+            const skipItems = (pagination[i] - this._page!.currentPage) * this.args.pagination?.items!;
 
-		return {
-			isCurrent: false,
-			page: 1,
-			cursor: Buffer.from('saltysalt'.concat(String(data.id))).toString('base64'),
-		};
-	}
+            switch (true) {
+                case skipItems < 0:
+                    take = skipItems;
+                    skip = 1;
+                    break;
+                case skipItems > 0:
+                    take = 1;
+                    skip = skipItems;
+                    break;
+                default:
+                    take = 1;
+                    skip = 0;
+            }
 
-	private async getLastRecord() {
-		if (this.page!.remain === this.args!.take || this.page!.remain < this.args!.take) {
-			return null;
-		}
+            //@ts-ignore
+            const data = await this.prisma[this.args.model].findFirst({
+                take: take,
+                skip: skip,
+                cursor: this._cursor,
+                select: { id: true },
+                where: this.args?.where,
+                orderBy: this.args?.orderBy
+            });
+            cursorList.push({
+                isCurrent: skipItems === 0,
+                page: pagination[i],
+                cursor: Buffer.from('saltysalt'.concat(String(data.id))).toString('base64')
+            });
+        }
+        return cursorList;
+    }
 
-		const take = () => {
-			const secondLastRecords = Math.floor(this.page.total / this.args.take) * this.args.take;
-			const take = this.page.total - secondLastRecords;
-			return take === 0 ? -this.args.take : -take;
-		};
+    private async getAdjacentCursors(cursorList: CursorList) {
+        const currentPage = cursorList!.findIndex((item) => item!.page === this._page!.currentPage);
+        if (currentPage === -1) return { previous: null, next: null };
 
-		const data = await this.prisma[this.args!.model].findFirst({
-			take: take(),
-			select: this.args?.select ?? undefined,
-			where: this.args?.where ?? undefined,
-			orderBy: this.args?.orderBy ?? undefined,
-		});
+        return {
+            previous: cursorList![currentPage - 1] ?? null,
+            next: cursorList![currentPage + 1] ?? null
+        };
+    }
 
-		return {
-			isCurrent: false,
-			page: Math.ceil(this.page!.total / this.args!.take),
-			cursor: Buffer.from('saltysalt'.concat(String(data.id))).toString('base64'),
-		};
-	}
+    private async getFirstRecord() {
+        if (this._page!.currentPage === 1) {
+            return null;
+        }
 
-	private async getPageEdges() {
-		const edges = [];
-		let select = undefined;
+        //@ts-ignore
+        const result = await this.prisma[this.args.model].findFirst({
+            take: 1,
+            select: { id: true },
+            where: this.args?.where,
+            orderBy: this.args?.orderBy
+        });
 
-		if (typeof this.args?.select !== 'undefined') {
-			select = { ...this.args?.select, id: true };
-		}
+        return {
+            isCurrent: false,
+            page: 1,
+            cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
+        };
+    }
 
-		const data = await this.prisma[this.args!.model].findMany({
-			cursor: this.cursor,
-			take: this.args!.take === null ? undefined : this.args!.take,
-			select: select,
-			where: this.args?.where ?? undefined,
-			orderBy: this.args?.orderBy ?? undefined,
-		});
+    private async getLastRecord() {
+        if (this._page!.remain === this.args.pagination!.items! || this._page!.remain < this.args.pagination!.items!) {
+            return null;
+        }
 
-		for (let i = 0; i < data.length; i++) {
-			edges.push({
-				cursor: Buffer.from('saltysalt'.concat(String(data[i].id))).toString('base64'),
-				node: data[i],
-			});
-		}
+        const take = () => {
+            const secondLastRecords = Math.floor(this._page!.total / this.args.pagination!.items!) * this.args.pagination!.items!;
+            const take = this._page!.total - secondLastRecords;
+            return take === 0 ? -this.args.pagination!.items! : -take;
+        };
 
-		return edges;
-	}
+        //@ts-ignore
+        const result = await this.prisma[this.args.model].findFirst({
+            take: take(),
+            select: { id: true },
+            where: this.args?.where,
+            orderBy: this.args?.orderBy
+        });
 
-	private async getPageCursors() {
-		const cursorList = await this.getNearCursors();
-		const nextToCursors = await this.getAdjacentCursors(cursorList);
-		const firstCursor = await this.getFirstRecord();
-		const lastCursor = await this.getLastRecord();
+        return {
+            isCurrent: false,
+            page: Math.ceil(this._page!.total / this.args.pagination!.items!),
+            cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
+        };
+    }
 
-		return {
-			...nextToCursors,
-			first: firstCursor,
-			last: lastCursor,
-			around: cursorList,
-		};
-	}
+    private async getPageCursors() {
+        const cursorList = await this.getNearCursors();
+        const nextToCursors = await this.getAdjacentCursors(cursorList);
+        const firstCursor = await this.getFirstRecord();
+        const lastCursor = await this.getLastRecord();
 
-	async paginate<M>(): Promise<RelayPagination<M>> {
-		this.cursor = await this.decryptCursor();
-		this.page = await this.findPagination();
-		const pageEdges = await this.getPageEdges();
+        return {
+            ...nextToCursors,
+            first: firstCursor,
+            last: lastCursor,
+            around: cursorList
+        };
+    }
 
-		if (this.args.take === null) {
-			return {
-				pageEdges: pageEdges,
-				pageCursors: null,
-				totalCount: this.page.total,
-			};
-		}
+    async paginate<M>(): Promise<RelayPagination<M>> {
+        this._cursor = await this.decryptCursor();
+        this._page = await this.findPagination();
+        const pageEdges = await this.getPageEdges();
+        const itemsNotExist = typeof this.args?.pagination?.items !== 'number' || this.args?.pagination?.items >= this._page.total;
+        const pageCursors = itemsNotExist ? null : await this.getPageCursors();
 
-		const pageCursors = await this.getPageCursors();
-		return {
-			pageEdges: pageEdges,
-			pageCursors: pageCursors,
-			totalCount: this.page.total,
-		};
-	}
+        return {
+            pageEdges: pageEdges,
+            pageCursors: pageCursors,
+            totalCount: this._page.total
+        };
+    }
 }

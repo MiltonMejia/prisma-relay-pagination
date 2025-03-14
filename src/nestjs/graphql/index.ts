@@ -1,3 +1,3 @@
 export * from './inputs';
-export * from './interfaces';
+export * from './args';
 export * from './models';

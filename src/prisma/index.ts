@@ -1,2 +1,2 @@
 export * from "./prisma-relay";
-export * from "./types";
+export * from "./prisma-relay.type";

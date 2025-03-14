@@ -3,12 +3,12 @@ import { Directive, Field, Int, ObjectType } from '@nestjs/graphql';
 @Directive('@shareable')
 @ObjectType()
 export class PageCursorItem {
-	@Field((type) => String)
+	@Field(() => String)
 	cursor!: string;
 
-	@Field((type) => Int)
+	@Field(() => Int)
 	page!: number;
 
-	@Field((type) => Boolean)
+	@Field(() => Boolean)
 	isCurrent!: boolean;
 }
