@@ -46,7 +46,8 @@ export class PrismaRelay<T extends Prisma.ModelName>
                 orderBy: this.args?.orderBy ?? undefined
             }),
             //@ts-ignore
-            this.prisma[this.args.model].count({
+            this.prisma[this.args.model].findMany({
+                select: { id: true },
                 cursor: this._cursor ?? undefined,
                 where: this.args?.where ?? undefined,
                 orderBy: this.args?.orderBy ?? undefined
@@ -54,9 +55,9 @@ export class PrismaRelay<T extends Prisma.ModelName>
         ]);
 
         const itemsExists = typeof this.args?.pagination?.items === 'number';
-        const page = itemsExists ? Math.ceil((total - remain) / this.args.pagination!.items!) : 0;
+        const page = itemsExists ? Math.ceil((total - remain.length) / this.args.pagination!.items!) : 0;
         const fixedPage = page === 0 ? 1 : page + 1;
-        return { total: total, remain: remain, currentPage: fixedPage };
+        return { total: total, remain: remain.length, currentPage: fixedPage };
     }
 
     private async getPageEdges()

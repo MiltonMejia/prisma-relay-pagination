@@ -1,8 +1,8 @@
 # Prisma Relay Pagination
 
-Inspired by [Prisma Korea's prisma-offset-pagination](https://github.com/prisma-korea/prisma-offset-pagination), Prisma Relay Pagination enhance pagination using Prisma cursor option.
+Inspired by [Prisma Korea's prisma-offset-pagination](https://github.com/prisma-korea/prisma-offset-pagination), Prisma Relay Pagination enhances pagination using Prisma cursor option.
 
-If you want to know how to Prisma support pagination, see [Prisma documentation](https://www.prisma.io/docs/orm/prisma-client/queries/pagination)
+If you want to know how Prisma supports pagination, see [Prisma documentation](https://www.prisma.io/docs/orm/prisma-client/queries/pagination)
 
 - [Installation](#installation)
 - [How to use](#how-to-use)
@@ -199,11 +199,11 @@ getUserPagination(...parameters) {
 ```
 #### Parameters
 `type` \
-Selected Graphql model to convert to pagination
+The Graphql model you want to convert to a pagination 
 ___
 
 ## PrismaRelayPaginationArg / PrismaRelayPaginationOptionalArg
-These classes help you add pagination parameters when you are using pagination queries. You can extend them if it's necessary with other fields like `where`, `orderBy`, etc.
+These classes help you add pagination parameters when you are using pagination queries. You can extend them with other fields like `where`, `orderBy`, etc.
 
 If you want to force pagination, then use `PrismaRelayPaginationArg`, otherwise, use `PrismaRelayPaginationOptionalArg`
 
