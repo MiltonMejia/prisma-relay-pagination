@@ -4,9 +4,9 @@ import { CursorList, CursorObject, Page, PrismaCursor, RelayPagination } from '.
 //@ts-ignore
 export class PrismaRelay<T extends Prisma.ModelName>
 {
+    private _defaultButtons = 5;
     private _page: Page | null = null;
     private _cursor: PrismaCursor | undefined = undefined;
-    private _defaultButtons = 5;
 
     constructor(
         private readonly prisma: PrismaClient,
@@ -57,6 +57,7 @@ export class PrismaRelay<T extends Prisma.ModelName>
         const itemsExists = typeof this.args?.pagination?.items === 'number';
         const page = itemsExists ? Math.ceil((total - remain.length) / this.args.pagination!.items!) : 0;
         const fixedPage = page === 0 ? 1 : page + 1;
+
         return { total: total, remain: remain.length, currentPage: fixedPage };
     }
 
@@ -72,7 +73,7 @@ export class PrismaRelay<T extends Prisma.ModelName>
 
         const itemsExists = typeof this.args?.pagination?.items === 'number';
         //@ts-ignore
-        const result = await this.prisma[this.args.model].findMany({
+        const resultList = await this.prisma[this.args.model].findMany({
             select: select,
             cursor: this._cursor ?? undefined,
             omit: this.args?.omit ?? undefined,
@@ -82,11 +83,11 @@ export class PrismaRelay<T extends Prisma.ModelName>
             take: itemsExists ? this.args.pagination!.items! : undefined
         });
 
-        for (let i = 0; i < result.length; i++)
+        for(const result of resultList)
         {
             edges.push({
-                cursor: Buffer.from('saltysalt'.concat(String(result[i].id))).toString('base64'),
-                node: result[i]
+                node: result,
+                cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
             });
         }
 
@@ -125,31 +126,16 @@ export class PrismaRelay<T extends Prisma.ModelName>
     private async getNearCursors()
     {
         const cursorList = [];
-        const pagination = this.generatePagination();
+        const paginationList = this.generatePagination();
 
-        for (let i = 0; i < pagination.length; i++)
+        for(const pagination of paginationList)
         {
-            let take = undefined;
-            let skip = undefined;
-            const skipItems = (pagination[i] - this._page!.currentPage) * this.args.pagination!.items;
-
-            switch (true)
-            {
-                case skipItems < 0:
-                    take = skipItems;
-                    skip = 1;
-                    break;
-                case skipItems > 0:
-                    take = 1;
-                    skip = skipItems;
-                    break;
-                default:
-                    take = 1;
-                    skip = 0;
-            }
+            const currentItem = (pagination - this._page!.currentPage) * this.args.pagination!.items;
+            const take = currentItem < 0 ? -1 : 1;
+            const skip = Math.abs(currentItem);
 
             //@ts-ignore
-            const data = await this.prisma[this.args.model].findFirst({
+            const [ result ] = await this.prisma[this.args.model].findMany({
                 take: take,
                 skip: skip,
                 select: { id: true },
@@ -157,12 +143,19 @@ export class PrismaRelay<T extends Prisma.ModelName>
                 where: this.args?.where ?? undefined,
                 orderBy: this.args?.orderBy ?? undefined
             });
+
+            if (typeof result === 'undefined' || result === null)
+            {
+                throw new Error('Page cursor out of range, reset the cursor and try again.');
+            }
+
             cursorList.push({
-                isCurrent: skipItems === 0,
-                page: pagination[i],
-                cursor: Buffer.from('saltysalt'.concat(String(data.id))).toString('base64')
+                page: pagination,
+                isCurrent: currentItem === 0,
+                cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
             });
         }
+
         return cursorList;
     }
 
@@ -177,7 +170,7 @@ export class PrismaRelay<T extends Prisma.ModelName>
         };
     }
 
-    private async getFirstRecord()
+    private async getFirstCursor()
     {
         if (this._page!.currentPage === 1)
         {
@@ -186,36 +179,32 @@ export class PrismaRelay<T extends Prisma.ModelName>
 
         //@ts-ignore
         const result = await this.prisma[this.args.model].findFirst({
-            take: 1,
             select: { id: true },
             where: this.args?.where ?? undefined,
             orderBy: this.args?.orderBy ?? undefined
         });
 
         return {
-            isCurrent: false,
             page: 1,
+            isCurrent: false,
             cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
         };
     }
 
-    private async getLastRecord()
+    private async getLastCursor()
     {
-        if (this._page!.remain === this.args.pagination!.items! || this._page!.remain < this.args.pagination!.items!)
+        if (this._page!.remain <= this.args.pagination!.items!)
         {
             return null;
         }
 
-        const take = () =>
-        {
-            const secondLastRecords = Math.floor(this._page!.total / this.args.pagination!.items!) * this.args.pagination!.items!;
-            const take = this._page!.total - secondLastRecords;
-            return take === 0 ? -this.args.pagination!.items! : -take;
-        };
+        const remainderItems = this._page!.total % this.args.pagination!.items!;
+        const skip = remainderItems === 0 ? this.args.pagination!.items! : remainderItems;
 
         //@ts-ignore
-        const result = await this.prisma[this.args.model].findFirst({
-            take: take(),
+        const [ result ] = await this.prisma[this.args.model].findMany({
+            take: -1,
+            skip: skip,
             select: { id: true },
             where: this.args?.where ?? undefined,
             orderBy: this.args?.orderBy ?? undefined
@@ -232,8 +221,8 @@ export class PrismaRelay<T extends Prisma.ModelName>
     {
         const cursorList = await this.getNearCursors();
         const nextToCursors = await this.getAdjacentCursors(cursorList);
-        const firstCursor = await this.getFirstRecord();
-        const lastCursor = await this.getLastRecord();
+        const firstCursor = await this.getFirstCursor();
+        const lastCursor = await this.getLastCursor();
 
         return {
             ...nextToCursors,

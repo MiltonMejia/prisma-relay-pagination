@@ -17,7 +17,7 @@ If you want to know how Prisma supports pagination, see [Prisma documentation](h
         - [How to use](#how-to-use-2)
         - [Parameters](#parameters-2)
     - [PrismaRelayPagination](#prismarelaypaginationarg--prismarelaypaginationoptionalarg)
-    - [How to use](#how-to-use-3)
+        - [How to use](#how-to-use-3)
 
 ## Installation
 
@@ -207,7 +207,7 @@ These classes help you add pagination parameters when you are using pagination q
 
 If you want to force pagination, then use `PrismaRelayPaginationArg`, otherwise, use `PrismaRelayPaginationOptionalArg`
 
-#### How to use
+### How to use
 
 ```typescript
 import { PrismaRelayPaginationArg } from 'prisma-custom-relay-pagination';
