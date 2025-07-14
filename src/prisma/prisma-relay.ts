@@ -204,7 +204,7 @@ export class PrismaRelay<T extends Prisma.ModelName>
         //@ts-ignore
         const [ result ] = await this.prisma[this.args.model].findMany({
             take: -1,
-            skip: skip,
+            skip: skip - 1,
             select: { id: true },
             where: this.args?.where ?? undefined,
             orderBy: this.args?.orderBy ?? undefined
