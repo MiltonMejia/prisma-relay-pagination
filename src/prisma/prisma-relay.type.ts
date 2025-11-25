@@ -1,4 +1,5 @@
-import { Prisma } from '@prisma/client';
+//@ts-expect-error
+import { Prisma } from '@libs/prisma-custom-relay-pagination/client';
 
 export type PrismaCursor = { id: number } | null;
 export type Page = { total: number; remain: number; currentPage: number } | null;

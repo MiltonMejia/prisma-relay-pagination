@@ -6,18 +6,18 @@ If you want to know how Prisma supports pagination, see [Prisma documentation](h
 
 - [Installation](#installation)
 - [How to use](#how-to-use)
-    - [Parameters](#parameters)
-    - [Notes](#notes)
-    - [Example](#return-data-example)
+  - [Parameters](#parameters)
+  - [Notes](#notes)
+  - [Example](#return-data-example)
 - [Nestjs](#nestjs)
-    - [ResolverSelect](#resolverselect)
-        - [How to use](#how-to-use-1)
-        - [Parameters](#parameters-1)
-    - [PrismaRelayPagination](#prismarelaypagination)
-        - [How to use](#how-to-use-2)
-        - [Parameters](#parameters-2)
-    - [PrismaRelayPagination](#prismarelaypaginationarg--prismarelaypaginationoptionalarg)
-        - [How to use](#how-to-use-3)
+  - [ResolverSelect](#resolverselect)
+    - [How to use](#how-to-use-1)
+    - [Parameters](#parameters-1)
+  - [PrismaRelayPagination](#prismarelaypagination)
+    - [How to use](#how-to-use-2)
+    - [Parameters](#parameters-2)
+  - [PrismaRelayPagination](#prismarelaypaginationarg--prismarelaypaginationoptionalarg)
+    - [How to use](#how-to-use-3)
 
 ## Installation
 
@@ -34,6 +34,17 @@ yarn add prisma-custom-relay-pagination
 ```
 
 ## How to use
+
+Add to tsconfig.json a path named `@libs/prisma-custom-relay-pagination` where your prisma output is generated
+
+```typescript
+"@libs/prisma-custom-relay-pagination/*": [
+  //Directory where your generated prisma is
+  //Example: "../src/generated/prisma/*"
+]
+```
+
+Add PrismaRelay where you need
 
 ```typescript
 import { PrismaRelay } from 'prisma-custom-relay-pagination';
@@ -53,41 +64,32 @@ const result = new PrismaRelay(PrismaClient, {
 
 ### Parameters
 
-`prisma:` \
+`prisma:`
 Prisma client object
 
 `args:`
 
-- `model` \
-    Model name 
-    (Typescript intellisense enabled from your available Prisma's models)
-
-- `buttons` (optional) \
-    Number of available pagination pages (Default value: 5 )
-
-- `where` (optional) \
-    Same values as Prisma.${Model}WhereInput
-
-- `omit` (optional) \
-    Same values as Prisma.{Model}Omit
-
-- `orderBy` (optional) \
-    Same values as Prisma.{Model}OrderByWithRelationInput
-
-- `select` (optional) \
-    Same values as Prisma.{Model}Select
-
-- `include` (optional) \
-    Same values as Prisma.{Model}Include
-
-- `pagination` (optional) \
-    If pagination is not added, all results will be returned
-
-    * `cursor` (optional) \
-        If cursor is not added, first page will be returned
-
-    * `items` \
-        Number of results returned
+- `model`
+  Model name
+  (Typescript intellisense enabled from your available Prisma's models)
+- `buttons` (optional)
+  Number of available pagination pages (Default value: 5 )
+- `where` (optional)
+  Same values as Prisma.${Model}WhereInput
+- `omit` (optional)
+  Same values as Prisma.{Model}Omit
+- `orderBy` (optional)
+  Same values as Prisma.{Model}OrderByWithRelationInput
+- `select` (optional)
+  Same values as Prisma.{Model}Select
+- `include` (optional)
+  Same values as Prisma.{Model}Include
+- `pagination` (optional) If pagination is not added, all results will be returned
+  
+  * `cursor` (optional)
+    If cursor is not added, first page will be returned
+  * `items`
+    Number of results returned
 
 #### Notes
 
@@ -140,17 +142,20 @@ export class UserResolver {
 ```
 
 #### Parameters
-`isPagination` (optional) \
+
+`isPagination` (optional)
 Set parameter to `true` if you are using PrismaRelay (Default value: false)
 
-`omit` (optional) \
+`omit` (optional)
 Omit fields not declared in Prisma's schema or fields with their resolver defined in Graphql.
 
-`model` (optional) \
+`model` (optional)
 GraphQL model name if it does not match with the Prisma schema model name
-___
+
+---
 
 ### PrismaRelayPagination
+
 This decorator converts Graphql model to PrismaRelay pagination model
 
 #### How to use
@@ -197,12 +202,16 @@ getUserPagination(...parameters) {
     }
 }
 ```
+
 #### Parameters
-`type` \
-The Graphql model you want to convert to a pagination 
-___
+
+`type`
+The Graphql model you want to convert to a pagination
+
+---
 
 ## PrismaRelayPaginationArg / PrismaRelayPaginationOptionalArg
+
 These classes help you add pagination parameters when you are using pagination queries. You can extend them with other fields like `where`, `orderBy`, etc.
 
 If you want to force pagination, then use `PrismaRelayPaginationArg`, otherwise, use `PrismaRelayPaginationOptionalArg`
@@ -215,3 +224,4 @@ import { PrismaRelayPaginationArg } from 'prisma-custom-relay-pagination';
 @ArgsType()
 export class UserPaginationArgs extends PrismaRelayPaginationArg {}
 ```
+
