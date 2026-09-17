@@ -1,249 +1,240 @@
 import { Prisma, PrismaClient } from '@libs/prisma-custom-relay-pagination/client';
-import { CursorList, CursorObject, Page, PrismaCursor, RelayPagination } from './prisma-relay.type.js';
+import { decodeCursor, encodeCursor, DecodedCursor } from './cursor.js';
+import { generatePageList } from './pagination.js';
+import { Cursor, CursorObject, Page, PageCursor, PageEdge, PrismaCursor, RelayPagination } from './prisma-relay.type.js';
+
+const DEFAULT_BUTTONS = 5;
 
 //@ts-ignore
 export class PrismaRelay<T extends Prisma.ModelName>
 {
-    private _defaultButtons = 5;
-    private _page: Page | null = null;
-    private _cursor: PrismaCursor | undefined = undefined;
+    private readonly _defaultButtons: number;
+    private readonly _items: number | undefined;
+    private readonly _secret: string | undefined;
+    private _page: Page = null;
+    private _cursor: PrismaCursor = undefined;
 
     constructor(
         private readonly prisma: PrismaClient,
         private readonly args: CursorObject<T>
     )
     {
-        if (typeof this.args?.buttons === 'number')
-        {
-            this._defaultButtons = this.args.buttons;
-        }
+        const buttons = this.args?.buttons;
+        this._defaultButtons = typeof buttons === 'number' && Number.isInteger(buttons) && buttons > 0 ? buttons : DEFAULT_BUTTONS;
+        this._items = typeof this.args?.pagination?.items === 'number' ? this.args.pagination.items : undefined;
+        this._secret = this.args?.cursorSecret;
     }
 
-    private async decryptCursor()
+    private decodeInputCursor(): DecodedCursor | undefined
     {
-        if (typeof this.args?.pagination?.cursor === 'undefined' || this.args?.pagination?.cursor === null)
+        const cursor = this.args?.pagination?.cursor;
+
+        if (typeof cursor === 'undefined' || cursor === null || cursor === '')
         {
             return undefined;
         }
 
-        const decryptedCursor = Buffer.from(this.args.pagination.cursor, 'base64').toString('ascii').slice(9);
-        const parseCursor = decryptedCursor.match(/[a-zA-Z]/) === null ? parseInt(decryptedCursor) : decryptedCursor;
-        //@ts-ignore
-        const model = await this.prisma[this.args.model].findFirst({
-            select: { id: true },
-            cursor: { id: parseCursor }
+        return decodeCursor(cursor, this._secret);
+    }
+
+    private countTotal()
+    {
+        return this.prisma[this.args.model].count({
+            where: this.args?.where ?? undefined
         });
-
-        return model !== null ? { id: model.id } : undefined;
     }
 
-    private async findPagination()
+    private edgesQuery()
     {
-        const [ total, remain ] = await this.prisma.$transaction([
-            //@ts-ignore
-            this.prisma[this.args.model].count({
-                where: this.args?.where ?? undefined,
-                orderBy: this.args?.orderBy ?? undefined
-            }),
-            //@ts-ignore
-            this.prisma[this.args.model].findMany({
-                select: { id: true },
-                cursor: this._cursor ?? undefined,
-                where: this.args?.where ?? undefined,
-                orderBy: this.args?.orderBy ?? undefined
-            })
-        ]);
-
-        const itemsExists = typeof this.args?.pagination?.items === 'number';
-        const page = itemsExists ? Math.ceil((total - remain.length) / this.args.pagination!.items!) : 0;
-        const fixedPage = page === 0 ? 1 : page + 1;
-
-        return { total: total, remain: remain.length, currentPage: fixedPage };
-    }
-
-    private async getPageEdges()
-    {
-        const edges = [];
         let select = undefined;
+        let omit = undefined;
 
         if (typeof this.args?.select !== 'undefined')
         {
-            select = { ...this.args?.select, id: true };
+            select = { ...this.args.select, id: true };
+        }
+        else if (typeof this.args?.omit !== 'undefined')
+        {
+            omit = { ...this.args.omit } as Record<string, boolean>;
+
+            if (omit.id === true)
+            {
+                omit.id = false;
+            }
         }
 
-        const itemsExists = typeof this.args?.pagination?.items === 'number';
-        //@ts-ignore
-        const resultList = await this.prisma[this.args.model].findMany({
+        return this.prisma[this.args.model].findMany({
             select: select,
             cursor: this._cursor ?? undefined,
-            omit: this.args?.omit ?? undefined,
+            omit: omit,
             where: this.args?.where ?? undefined,
             orderBy: this.args?.orderBy ?? undefined,
             include: this.args?.include ?? undefined,
-            take: itemsExists ? this.args.pagination!.items! : undefined
+            take: this._items
         });
-
-        for(const result of resultList)
-        {
-            edges.push({
-                node: result,
-                cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
-            });
-        }
-
-        return edges;
     }
 
-    private generatePagination()
+    private toPageEdges<M>(resultList: M[]): PageEdge<M>[]
     {
-        const totalPages = Math.ceil(this._page!.total / this.args.pagination!.items!);
-        let firstPage = Math.floor(this._defaultButtons / 2);
-        let lastPage = Math.floor(this._defaultButtons / 2);
+        const omitId = typeof this.args?.omit !== 'undefined' && (this.args.omit as Record<string, boolean>).id === true;
 
-        if (this._page!.currentPage - firstPage <= 0)
+        return resultList.map((result) =>
         {
-            lastPage += firstPage - this._page!.currentPage + 1;
-            firstPage = this._page!.currentPage - 1;
-        }
+            const row = result as Record<string, unknown>;
+            const cursor = encodeCursor(row.id as string | number | bigint, this._page!.currentPage, this._secret);
+            const node = omitId ? this.withoutId(row) : result;
 
-        if (this._page!.currentPage + lastPage > totalPages)
-        {
-            firstPage += lastPage - (totalPages - this._page!.currentPage);
-            lastPage = totalPages - this._page!.currentPage;
-        }
-
-        const pageList: number[] = [];
-        const firstArrayPage = this._page!.currentPage - firstPage;
-        const firstIndex = firstArrayPage <= 0 ? 1 : firstArrayPage;
-        for (let i = firstIndex; i <= this._page!.currentPage + lastPage; i++)
-        {
-            pageList.push(i);
-        }
-
-        return pageList;
+            return { node: node as M, cursor: cursor };
+        });
     }
 
-    private async getNearCursors()
+    private withoutId(row: Record<string, unknown>): Record<string, unknown>
     {
-        const cursorList = [];
-        const paginationList = this.generatePagination();
+        const clone = { ...row };
+        delete clone.id;
 
-        for(const pagination of paginationList)
-        {
-            const currentItem = (pagination - this._page!.currentPage) * this.args.pagination!.items;
-            const take = currentItem < 0 ? -1 : 1;
-            const skip = Math.abs(currentItem);
-
-            //@ts-ignore
-            const [ result ] = await this.prisma[this.args.model].findMany({
-                take: take,
-                skip: skip,
-                select: { id: true },
-                cursor: this._cursor ?? undefined,
-                where: this.args?.where ?? undefined,
-                orderBy: this.args?.orderBy ?? undefined
-            });
-
-            if (typeof result === 'undefined' || result === null)
-            {
-                throw new Error('Page cursor out of range, reset the cursor and try again.');
-            }
-
-            cursorList.push({
-                page: pagination,
-                isCurrent: currentItem === 0,
-                cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
-            });
-        }
-
-        return cursorList;
+        return clone;
     }
 
-    private async getAdjacentCursors(cursorList: CursorList)
+    private nearCursorQuery(page: number)
     {
-        const currentPage = cursorList!.findIndex((item) => item!.page === this._page!.currentPage);
-        if (currentPage === -1) return { previous: null, next: null };
+        const currentItem = (page - this._page!.currentPage) * this._items!;
 
-        return {
-            previous: cursorList![currentPage - 1] ?? null,
-            next: cursorList![currentPage + 1] ?? null
-        };
+        return this.prisma[this.args.model].findMany({
+            take: currentItem < 0 ? -1 : 1,
+            skip: Math.abs(currentItem),
+            select: { id: true },
+            cursor: this._cursor ?? undefined,
+            where: this.args?.where ?? undefined,
+            orderBy: this.args?.orderBy ?? undefined
+        });
     }
 
-    private async getFirstCursor()
+    private firstCursorQuery()
     {
-        if (this._page!.currentPage === 1)
-        {
-            return null;
-        }
-
-        //@ts-ignore
-        const result = await this.prisma[this.args.model].findFirst({
+        return this.prisma[this.args.model].findMany({
+            take: 1,
             select: { id: true },
             where: this.args?.where ?? undefined,
             orderBy: this.args?.orderBy ?? undefined
         });
-
-        return {
-            page: 1,
-            isCurrent: false,
-            cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
-        };
     }
 
-    private async getLastCursor()
+    private lastCursorQuery()
     {
-        if (this._page!.remain <= this.args.pagination!.items!)
-        {
-            return null;
-        }
+        const remainderItems = this._page!.total % this._items!;
+        const skip = remainderItems === 0 ? this._items! : remainderItems;
 
-        const remainderItems = this._page!.total % this.args.pagination!.items!;
-        const skip = remainderItems === 0 ? this.args.pagination!.items! : remainderItems;
-
-        //@ts-ignore
-        const [ result ] = await this.prisma[this.args.model].findMany({
+        return this.prisma[this.args.model].findMany({
             take: -1,
             skip: skip - 1,
             select: { id: true },
             where: this.args?.where ?? undefined,
             orderBy: this.args?.orderBy ?? undefined
         });
+    }
+
+    private lastPage()
+    {
+        return Math.ceil(this._page!.total / this._items!);
+    }
+
+    private toCursor(rows: Array<{ id: string | number | bigint }>, page: number): Cursor
+    {
+        const [ row ] = rows;
+
+        if (typeof row === 'undefined' || row === null)
+        {
+            throw new Error('Page cursor out of range, reset the cursor and try again.');
+        }
 
         return {
-            isCurrent: false,
-            page: Math.ceil(this._page!.total / this.args.pagination!.items!),
-            cursor: Buffer.from('saltysalt'.concat(String(result.id))).toString('base64')
+            page: page,
+            isCurrent: page === this._page!.currentPage,
+            cursor: encodeCursor(row.id, page, this._secret)
         };
     }
 
-    private async getPageCursors()
+    private getAdjacentCursors(cursorList: Cursor[])
     {
-        const cursorList = await this.getNearCursors();
-        const nextToCursors = await this.getAdjacentCursors(cursorList);
-        const firstCursor = await this.getFirstCursor();
-        const lastCursor = await this.getLastCursor();
+        const currentIndex = cursorList.findIndex((item) => item !== null && item.page === this._page!.currentPage);
+
+        if (currentIndex === -1)
+        {
+            return { previous: null, next: null };
+        }
 
         return {
-            ...nextToCursors,
-            first: firstCursor,
-            last: lastCursor,
-            around: cursorList
+            previous: cursorList[currentIndex - 1] ?? null,
+            next: cursorList[currentIndex + 1] ?? null
         };
+    }
+
+    private async getPageCursors(): Promise<PageCursor>
+    {
+        const paginationList = generatePageList({
+            total: this._page!.total,
+            currentPage: this._page!.currentPage,
+            items: this._items!,
+            buttons: this._defaultButtons
+        });
+
+        const nearQueries = paginationList.map((page) => this.nearCursorQuery(page));
+        const includeFirst = this._page!.currentPage !== 1;
+        const includeLast = this._page!.remain > this._items!;
+        const queries = [ ...nearQueries ];
+
+        if (includeFirst)
+        {
+            queries.push(this.firstCursorQuery());
+        }
+
+        if (includeLast)
+        {
+            queries.push(this.lastCursorQuery());
+        }
+
+        const results: Array<Array<{ id: string | number | bigint }>> = await this.prisma.$transaction(queries);
+
+        const around = paginationList.map((page, index) => this.toCursor(results[index], page));
+        let cursorIndex = nearQueries.length;
+        const first = includeFirst ? this.toCursor(results[cursorIndex++], 1) : null;
+        const last = includeLast ? this.toCursor(results[cursorIndex], this.lastPage()) : null;
+        const { previous, next } = this.getAdjacentCursors(around);
+
+        return { first: first, previous: previous, around: around, next: next, last: last };
     }
 
     async paginate<M>(): Promise<RelayPagination<M>>
     {
-        this._cursor = await this.decryptCursor();
-        this._page = await this.findPagination();
-        const pageEdges = await this.getPageEdges();
-        const itemsNotExist = typeof this.args?.pagination?.items !== 'number' || this.args?.pagination?.items >= this._page.total;
-        const pageCursors = itemsNotExist ? null : await this.getPageCursors();
+        const decoded = this.decodeInputCursor();
+        this._cursor = decoded ? { id: decoded.id } : undefined;
+
+        const total = await this.countTotal();
+        const totalPages = this._items ? Math.max(Math.ceil(total / this._items), 1) : 1;
+        const currentPage = this._items ? Math.min(Math.max(decoded?.page ?? 1, 1), totalPages) : 1;
+        const remain = this._items ? Math.max(total - (currentPage - 1) * this._items, 0) : total;
+        this._page = { total: total, remain: remain, currentPage: currentPage };
+
+        const itemsNotExist = typeof this._items !== 'number' || this._items >= total;
+
+        if (itemsNotExist)
+        {
+            const resultList = await this.edgesQuery();
+
+            return {
+                pageEdges: this.toPageEdges<M>(resultList),
+                pageCursors: null,
+                totalCount: total
+            };
+        }
+
+        const [ resultList, pageCursors ] = await Promise.all([ this.edgesQuery(), this.getPageCursors() ]);
 
         return {
-            pageEdges: pageEdges,
+            pageEdges: this.toPageEdges<M>(resultList),
             pageCursors: pageCursors,
-            totalCount: this._page.total
+            totalCount: total
         };
     }
 }

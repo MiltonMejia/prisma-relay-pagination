@@ -1,6 +1,6 @@
 import { Prisma } from '@libs/prisma-custom-relay-pagination/client';
 
-export type PrismaCursor = { id: number } | null;
+export type PrismaCursor = { id: string | number | bigint } | null | undefined;
 export type Page = { total: number; remain: number; currentPage: number } | null;
 export type CursorList = Cursor[] | null;
 //@ts-ignore
@@ -16,6 +16,7 @@ type PrismaFieldOmit<T extends Prisma.ModelName> = { select?: never, omit?: Pris
 export type CursorObject<T extends Prisma.ModelName> = {
     model: T,
     buttons?: number,
+    cursorSecret?: string,
     where?: PrismaFindMany<T>['where'],
     orderBy?: PrismaFindMany<T>['orderBy'],
     pagination?: { items: number, cursor?: string }

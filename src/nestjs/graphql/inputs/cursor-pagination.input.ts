@@ -1,5 +1,7 @@
 import { Field, InputType, Int } from "@nestjs/graphql";
-import { IsInt, IsOptional, Length, Min } from "class-validator";
+import { IsInt, IsOptional, Length, Max, Min } from "class-validator";
+
+export const MAX_PAGINATION_ITEMS = 1000;
 
 @InputType()
 export class CursorPaginationInput {
@@ -13,6 +15,7 @@ export class CursorPaginationInput {
 
     @Field(() => Int)
     @Min(1, { message: "Check that $property has a minimum 1 item" })
+    @Max(MAX_PAGINATION_ITEMS, { message: `Check that $property has a maximum of $constraint1 items` })
     @IsInt({ message: "Check that $property is Integer" })
     items!: number;
 }
