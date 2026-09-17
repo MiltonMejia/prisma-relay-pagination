@@ -1,3 +1,3 @@
-export * from './inputs';
-export * from './args';
-export * from './models';
+export * from './inputs/index.js';
+export * from './args/index.js';
+export * from './models/index.js';

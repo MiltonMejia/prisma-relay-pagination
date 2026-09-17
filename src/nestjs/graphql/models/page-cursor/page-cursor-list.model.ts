@@ -1,5 +1,5 @@
 import { Directive, Field, ObjectType } from "@nestjs/graphql";
-import { PageCursorItem } from "./page-cursor-item.model";
+import { PageCursorItem } from "./page-cursor-item.model.js";
 
 @Directive("@shareable")
 @ObjectType()

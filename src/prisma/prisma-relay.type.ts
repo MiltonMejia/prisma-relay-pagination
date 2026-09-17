@@ -1,4 +1,3 @@
-//@ts-expect-error
 import { Prisma } from '@libs/prisma-custom-relay-pagination/client';
 
 export type PrismaCursor = { id: number } | null;
@@ -6,10 +5,13 @@ export type Page = { total: number; remain: number; currentPage: number } | null
 export type CursorList = Cursor[] | null;
 //@ts-ignore
 type PrismaFindMany<T extends Prisma.ModelName> = Prisma.TypeMap['model'][T]['operations']['findMany']['args'];
+// Not every model exposes `include` (models without relations omit it), so it cannot
+// be indexed directly on the generic union. Infer it per model instead.
+type PrismaInclude<T extends Prisma.ModelName> = PrismaFindMany<T> extends { include?: infer Include } ? Include : never;
 //@ts-ignore
 type PrismaFieldSelect<T extends Prisma.ModelName> = { select?: PrismaFindMany<T>['select'], omit?: never, include?: never };
 //@ts-ignore
-type PrismaFieldOmit<T extends Prisma.ModelName> = { select?: never, omit?: PrismaFindMany<T>['omit'], include?: PrismaFindMany<T>['include'] };
+type PrismaFieldOmit<T extends Prisma.ModelName> = { select?: never, omit?: PrismaFindMany<T>['omit'], include?: PrismaInclude<T> };
 //@ts-ignore
 export type CursorObject<T extends Prisma.ModelName> = {
     model: T,

@@ -1,2 +1,2 @@
-export * from './prisma-relay-pagination.arg';
-export * from './prisma-relay-pagination-optional.arg';
+export * from './prisma-relay-pagination.arg.js';
+export * from './prisma-relay-pagination-optional.arg.js';

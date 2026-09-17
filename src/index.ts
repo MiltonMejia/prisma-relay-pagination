@@ -1,2 +1,2 @@
-export * from './nestjs';
-export * from './prisma';
+export * from './nestjs/index.js';
+export * from './prisma/index.js';

@@ -1,7 +1,9 @@
 {
 	"compilerOptions": {
 		"target": "ES2024",
-		"module": "commonjs",
+		"lib": ["ES2024"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
 		"declaration": true,
 		"outDir": "./lib",
 		"experimentalDecorators": true,

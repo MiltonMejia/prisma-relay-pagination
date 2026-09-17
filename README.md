@@ -35,14 +35,25 @@ yarn add prisma-custom-relay-pagination
 
 ## How to use
 
-Add to tsconfig.json a path named `@libs/prisma-custom-relay-pagination` where your prisma output is generated
+### Required setup (Prisma client types)
 
-```typescript
-"@libs/prisma-custom-relay-pagination/*": [
-  //Directory where your generated prisma is
-  //Example: "../src/generated/prisma/*"
-]
+`prisma-custom-relay-pagination` is typed against **your own generated Prisma client**. Since the client can be generated to any path, the package imports its types from the bare specifier `@libs/prisma-custom-relay-pagination/client`, and **you must map it** in your `tsconfig.json`:
+
+```jsonc
+{
+  "compilerOptions": {
+    "paths": {
+      "@libs/prisma-custom-relay-pagination/*": [
+        // Directory where your generated Prisma client lives, e.g.:
+        "./src/generated/prisma/*",
+        "./apps/prisma/*"
+      ]
+    }
+  }
+}
 ```
+
+> This mapping is **required**. It provides the autocomplete and type-safety for `model`, `where`, `orderBy`, `select` and `omit`. With `skipLibCheck: false`, a missing alias makes TypeScript report an unresolved import inside this package.
 
 Add PrismaRelay where you need
 

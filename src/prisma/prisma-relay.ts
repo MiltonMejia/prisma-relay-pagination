@@ -1,6 +1,5 @@
-//@ts-expect-error
 import { Prisma, PrismaClient } from '@libs/prisma-custom-relay-pagination/client';
-import { CursorList, CursorObject, Page, PrismaCursor, RelayPagination } from './prisma-relay.type';
+import { CursorList, CursorObject, Page, PrismaCursor, RelayPagination } from './prisma-relay.type.js';
 
 //@ts-ignore
 export class PrismaRelay<T extends Prisma.ModelName>

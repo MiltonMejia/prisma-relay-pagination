@@ -1,7 +1,7 @@
 import { ArgsType, Field } from '@nestjs/graphql';
 import { Type } from 'class-transformer';
 import { ValidateNested } from 'class-validator';
-import { CursorPaginationInput } from '../inputs';
+import { CursorPaginationInput } from '../inputs/index.js';
 
 @ArgsType()
 export class PrismaRelayPaginationArg {

@@ -1,7 +1,10 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import { PrismaSelect } from '@paljs/plugins';
-import omit from 'lodash/omit';
+import paljs from '@paljs/plugins';
+import lodash from 'lodash';
+
+const { PrismaSelect } = paljs;
+const { omit } = lodash;
 
 export type ResolverSelectInput = { isPagination?: boolean; omit?: string[]; model?: string };
 
