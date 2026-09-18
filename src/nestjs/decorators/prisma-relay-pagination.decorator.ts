@@ -3,19 +3,41 @@ import { GraphQLScalarType } from 'graphql';
 import { PageCursorList } from '../graphql/models/page-cursor/page-cursor-list.model.js';
 import { PageEdgeItem } from '../graphql/models/page-edge/page-edge-item.model.js';
 
-export type PrismaRelayPaginationObjectArgs = ObjectTypeOptions & { type: Function | GraphQLScalarType<unknown, unknown> };
+export type PrismaRelayPaginationModelType = Function | GraphQLScalarType<unknown, unknown>;
+
+export type PrismaRelayPaginationType = PrismaRelayPaginationModelType | (() => PrismaRelayPaginationModelType);
+
+export type PrismaRelayPaginationObjectArgs = ObjectTypeOptions & { type: PrismaRelayPaginationType };
 
 export function PrismaRelayPagination(args: PrismaRelayPaginationObjectArgs) {
     return function (target: Function) {
         const { type, ...options } = args;
-        const edgeObject = createPaginationEdgeObject(type);
-        createPaginationObject({ target, modelName: type.name, edgeObject, options });
+        const resolveType = createTypeResolver(type);
+        const edgeObject = createPaginationEdgeObject(resolveType);
+        createPaginationObject({ target, modelName: resolveType().name, edgeObject, options });
     };
 }
 
-function createPaginationEdgeObject(type: Function | GraphQLScalarType<unknown, unknown>) {
+/**
+ * Accepts both a class/scalar directly and a thunk (`() => Model`).
+ *
+ * The thunk form is required by ESM consumers: `{ type: Model }` evaluates the
+ * model binding eagerly at decorator call time, which throws a temporal dead
+ * zone error when the model participates in a circular import (list model
+ * importing the model that imports the list model).
+ */
+function createTypeResolver(type: PrismaRelayPaginationType): () => PrismaRelayPaginationModelType {
+    if (typeof type === 'function' && typeof type.prototype === 'undefined') {
+        return type as () => PrismaRelayPaginationModelType;
+    }
+
+    return () => type as PrismaRelayPaginationModelType;
+}
+
+function createPaginationEdgeObject(resolveType: () => PrismaRelayPaginationModelType) {
     const paginationEdge = class extends PageEdgeItem { };
-    addFieldMetadata(() => type, { nullable: false }, paginationEdge.prototype, 'node');
+    const type = resolveType();
+    addFieldMetadata(() => resolveType(), { nullable: false }, paginationEdge.prototype, 'node');
     ObjectType(`${type.name}Edge`, { description: `Prisma relay pagination edge of ${type.name} model` })(paginationEdge);
 
     return paginationEdge;

@@ -5,6 +5,7 @@ Inspired by [Prisma Korea's prisma-offset-pagination](https://github.com/prisma-
 If you want to know how Prisma supports pagination, see [Prisma documentation](https://www.prisma.io/docs/orm/prisma-client/queries/pagination)
 
 - [Installation](#installation)
+  - [Requirements](#requirements)
 - [How to use](#how-to-use)
   - [Parameters](#parameters)
   - [Notes](#notes)
@@ -32,6 +33,13 @@ npm install prisma-custom-relay-pagination
 ```
 yarn add prisma-custom-relay-pagination
 ```
+
+### Requirements
+
+- **ESM-only package** (`"type": "module"`). Requires Node.js **>= 20.19 / 22.12**.
+- TypeScript with `module: nodenext` (recommended) or `moduleResolution: bundler`.
+- Peer dependencies: `@nestjs/common` ^12, `@nestjs/core` ^12, `@nestjs/graphql` ^14, `graphql` ^16 || ^17, `reflect-metadata`, `class-validator` and `class-transformer`.
+- `ResolverSelect` additionally requires the optional peer dependency `@paljs/plugins`.
 
 ## How to use
 
@@ -138,6 +146,8 @@ There are some utilities for NestJS that help you to reduce boilerplate when you
 
 Using [Pal.js](https://paljs.com/), this decorator converts Query fields from Graphql to Prisma select fields. You can check Pal.js [documentation](https://paljs.com/plugins/select/#example-query) to see how it works.
 
+> `ResolverSelect` loads `@paljs/plugins` at runtime. It is an optional peer dependency, so install it (`npm install @paljs/plugins`) if you use this decorator.
+
 #### How to use
 
 ```typescript
@@ -175,6 +185,15 @@ This decorator converts Graphql model to PrismaRelay pagination model
 import { PrismaRelayPagination } from 'prisma-custom-relay-pagination';
 
 @PrismaRelayPagination({ type: User })
+export class UserPagination {}
+```
+
+> In ESM projects, when the pagination model and the model reference each other (circular imports), pass the type as a thunk to avoid the eager evaluation of the model binding. Otherwise Node throws `Cannot access 'User' before initialization` (temporal dead zone):
+
+```typescript
+import { PrismaRelayPagination } from 'prisma-custom-relay-pagination';
+
+@PrismaRelayPagination({ type: () => User })
 export class UserPagination {}
 ```
 
@@ -217,7 +236,7 @@ getUserPagination(...parameters) {
 #### Parameters
 
 `type`
-The Graphql model you want to convert to a pagination
+The GraphQL model you want to convert to pagination. Accepts a class, a `GraphQLScalarType`, or a thunk `() => Model`. Use the thunk in ESM projects when the model takes part in a circular import, since `{ type: User }` is evaluated eagerly at decorator call time and can throw a temporal dead zone error.
 
 ---
 
