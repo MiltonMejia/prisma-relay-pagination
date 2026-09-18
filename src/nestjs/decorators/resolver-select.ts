@@ -32,6 +32,18 @@ function getPrismaSelect(): PrismaSelectConstructor
 
 export type ResolverSelectInput = { isPagination?: boolean; omit?: string[]; model?: string };
 
+export function buildResolverSelect(rawSelect: any, data: ResolverSelectInput = {}): Record<string, any>
+{
+    const baseSelect = rawSelect?.select ?? {};
+    const select = data.isPagination
+        ? baseSelect?.pageEdges?.select?.node?.select ?? {}
+        : baseSelect;
+
+    if (Object.keys(select).length === 0) return { id: true };
+    if (typeof data.omit !== 'undefined') return omit(select, data.omit ?? []);
+    return select;
+}
+
 export const ResolverSelect = createParamDecorator((
     data: ResolverSelectInput = { isPagination: false },
     context: ExecutionContext
@@ -41,9 +53,6 @@ export const ResolverSelect = createParamDecorator((
     const selectRaw = data?.model
         ? new PrismaSelect(ctx.getInfo()).valueWithFilter(data.model)
         : new PrismaSelect(ctx.getInfo()).value;
-    const select = data.isPagination ? selectRaw.select.pageEdges.select.node.select : selectRaw.select;
 
-    if (Object.keys(select).length === 0) return { id: true };
-    if (typeof data?.omit !== 'undefined') return omit(select, data.omit ?? []);
-    return select;
+    return buildResolverSelect(selectRaw, data);
 });

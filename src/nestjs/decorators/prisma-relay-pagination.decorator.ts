@@ -18,14 +18,6 @@ export function PrismaRelayPagination(args: PrismaRelayPaginationObjectArgs) {
     };
 }
 
-/**
- * Accepts both a class/scalar directly and a thunk (`() => Model`).
- *
- * The thunk form is required by ESM consumers: `{ type: Model }` evaluates the
- * model binding eagerly at decorator call time, which throws a temporal dead
- * zone error when the model participates in a circular import (list model
- * importing the model that imports the list model).
- */
 function createTypeResolver(type: PrismaRelayPaginationType): () => PrismaRelayPaginationModelType {
     if (typeof type === 'function' && typeof type.prototype === 'undefined') {
         return type as () => PrismaRelayPaginationModelType;
